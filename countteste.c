@@ -3,6 +3,7 @@
 #include <string.h>
 
 #define MAX_SIZE (16 * 1024 * 1024)
+typedef int * imagem;
 
 /* crc - from rfc2083 */
 
@@ -177,6 +178,69 @@ void check_crc(const char *crcbuf, const char *buf, int len)
 	int found_crc = get_big_endian(crcbuf);
 	int calc_crc = calculate_crc(buf, len);
 	printf("CRC correct: %d\n", found_crc == calc_crc);
+
+}
+
+//teste para contar estrelas 
+
+void Conta_estrelas(imagem I, int nl, int nc) {
+    int i, j, x=1;
+    for (i = 0; i < nl; i++){
+        for (j = 0; j < nc; j++){
+            if (i == 0) {
+                  if ((I[i * nc + j] == 255) && (I[i * nc + (j - 1)] != 0)) {
+                    I[i * nc + j] = I[i * nc + (j - 1)];
+                } else if (I[i * nc + j] == 255) {
+                    I[i * nc + j] = x;
+                    x++;
+                }
+            } 
+            if (i > 0) {
+                 if ((I[i * nc + j] == 255) && (I[(i * nc + j) - 1] != 0) && (I[(i * nc + j) - nc] != 0)) {
+                     I[i * nc + j] = I[(i * nc + j) - nc];
+                     I[(i * nc + j) - 1] = I[(i * nc + j) - nc];
+                 }
+                 if ((I[i * nc + j] == 255) && (I[(i * nc + j) - nc] != 0)) {
+                     I[i * nc + j] = I[(i * nc + j) - nc];
+                 }
+                 if ((I[i * nc + j] == 255) && (I[(i * nc + j) - 1] != 0)) {
+                     I[i * nc + j] = I[(i * nc + j) - 1];
+                 }
+                 if (I[i * nc + j] == 255) {
+                     I[i * nc + j] = x;
+                     x++;
+                 }
+            }   
+        }
+    }
+
+    for (i = nl-1; i >= 0; i--){
+        for (j = nc; j >= 0; j--){
+            if ((I[i * nc + j] != 0) && (I[(i * nc + j) - 1] != 0)) {
+                     I[(i * nc + j) - 1] = I[i * nc + j];
+                 }
+        }
+    }
+
+}
+
+int Conta_estrelas2(imagem I, int nl, int nc){
+    int i,j,cont=0,cont2 = 0;
+    int max = nl*nc;
+    for (i = 0; i < max; i++){
+        for (j = i+1; j < max; j++){
+           if(I[i] != I[j]){
+               cont++;
+           }else{
+               break;
+           }
+        }
+        if(cont == max-(i+1)){
+            cont2++;
+        }
+        cont=0;
+    }
+    return cont2-1;
 }
 
 int main(int argc, char **argv)
