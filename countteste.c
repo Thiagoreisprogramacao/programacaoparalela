@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_SIZE (16 * 1024 * 1024)
-typedef int * imagem;
+#define MAX_SIZE (1396 * 1024 * 1024)
 
-/* crc - from rfc2083 */
+
+//initial values
+int nl = 0;
+int nC = 0;
 
 /* Table of CRCs of all 8-bit messages. */
 unsigned long crc_table[256];
@@ -13,52 +15,7 @@ unsigned long crc_table[256];
 /* Flag: has the table been computed? Initially false. */
 int crc_table_computed = 0;
 
-/* Make the table for a fast CRC. */
-void make_crc_table(void)
-{
-	unsigned long c;
-	int n, k;
-	for (n = 0; n < 256; n++) {
-		c = (unsigned long) n;
-		for (k = 0; k < 8; k++) {
-			if (c & 1)
-				c = 0xedb88320L ^ (c >> 1);
-			else
-				c = c >> 1;
-		}
-		crc_table[n] = c;
-	}
-	crc_table_computed = 1;
-}
-
-/* Update a running CRC with the bytes buf[0..len-1]--the CRC
-   should be initialized to all 1's, and the transmitted value
-   is the 1's complement of the final running CRC (see the
-   crc() routine below)). 
-   https://progbook.org/ex_png.html
-   */
-
-unsigned long update_crc(unsigned long crc, const char *buf,
-		int len)
-{
-	unsigned long c = crc;
-	int n;
-
-	if (!crc_table_computed)
-		make_crc_table();
-	for (n = 0; n < len; n++) {
-		c = crc_table[(c ^ buf[n]) & 0xff] ^ (c >> 8);
-	}
-	return c;
-}
-
-/* Return the CRC of the bytes buf[0..len-1]. */
-unsigned long calculate_crc(const char *buf, int len)
-{
-	return update_crc(0xffffffffL, buf, len) ^ 0xffffffffL;
-}
-
-/* png handling */
+/*    https://progbook.org/ex_png.html   */
 
 struct png_data {
 	int color_type;
@@ -87,6 +44,7 @@ int get_2_byte_big_endian(const char *buf)
 
 int get_big_endian(const char *buf)
 {
+	
 	return ((unsigned char)buf[0] << 24) |
 	       ((unsigned char)buf[1] << 16) | 
 	       ((unsigned char)buf[2] << 8) | 
@@ -104,6 +62,10 @@ void header_handler(const char *buf, int len, struct png_data *png)
 	printf("Compression method: %d\n", (unsigned char)buf[10]);
 	printf("Filter method:      %d\n", (unsigned char)buf[11]);
 	printf("Interlace method:   %d\n", (unsigned char)buf[12]);
+
+	nC= get_big_endian(buf);
+	nl = get_big_endian(buf + 4);
+
 }
 
 void background_handler(const char *buf, int len, struct png_data *png)
@@ -173,78 +135,7 @@ void check_header(const char *buf)
 	validate((unsigned char)buf[7] == '\n', "header byte 8");
 }
 
-void check_crc(const char *crcbuf, const char *buf, int len)
-{
-	int found_crc = get_big_endian(crcbuf);
-	int calc_crc = calculate_crc(buf, len);
-	printf("CRC correct: %d\n", found_crc == calc_crc);
-
-}
-
-//teste para contar estrelas 
-
-void Conta_estrelas(imagem I, int nl, int nc) {
-    int i, j, x=1;
-    for (i = 0; i < nl; i++){
-        for (j = 0; j < nc; j++){
-            if (i == 0) {
-                  if ((I[i * nc + j] == 255) && (I[i * nc + (j - 1)] != 0)) {
-                    I[i * nc + j] = I[i * nc + (j - 1)];
-                } else if (I[i * nc + j] == 255) {
-                    I[i * nc + j] = x;
-                    x++;
-                }
-            } 
-            if (i > 0) {
-                 if ((I[i * nc + j] == 255) && (I[(i * nc + j) - 1] != 0) && (I[(i * nc + j) - nc] != 0)) {
-                     I[i * nc + j] = I[(i * nc + j) - nc];
-                     I[(i * nc + j) - 1] = I[(i * nc + j) - nc];
-                 }
-                 if ((I[i * nc + j] == 255) && (I[(i * nc + j) - nc] != 0)) {
-                     I[i * nc + j] = I[(i * nc + j) - nc];
-                 }
-                 if ((I[i * nc + j] == 255) && (I[(i * nc + j) - 1] != 0)) {
-                     I[i * nc + j] = I[(i * nc + j) - 1];
-                 }
-                 if (I[i * nc + j] == 255) {
-                     I[i * nc + j] = x;
-                     x++;
-                 }
-            }   
-        }
-    }
-
-    for (i = nl-1; i >= 0; i--){
-        for (j = nc; j >= 0; j--){
-            if ((I[i * nc + j] != 0) && (I[(i * nc + j) - 1] != 0)) {
-                     I[(i * nc + j) - 1] = I[i * nc + j];
-                 }
-        }
-    }
-
-}
-
-int Conta_estrelas2(imagem I, int nl, int nc){
-    int i,j,cont=0,cont2 = 0;
-    int max = nl*nc;
-    for (i = 0; i < max; i++){
-        for (j = i+1; j < max; j++){
-           if(I[i] != I[j]){
-               cont++;
-           }else{
-               break;
-           }
-        }
-        if(cont == max-(i+1)){
-            cont2++;
-        }
-        cont=0;
-    }
-    return cont2-1;
-}
-
-int main(int argc, char **argv)
-{
+int readImage(int argc, char **argv){
 	if(argc != 2) {
 		printf("Usage: %s <png file>\n", argv[0]);
 		return 1;
@@ -278,17 +169,24 @@ int main(int argc, char **argv)
 		char chunkbuf[5];
 		chunkbuf[4] = 0;
 		memcpy(chunkbuf, buf + pos + 4, 4);
-		printf("chunk: %s - len: %d (%d)\n", chunkbuf, len, size - (pos + len + 12));
+		//printf("chunk: %s - len: %d (%d)\n", chunkbuf, len, size - (pos + len + 12));
 		for(int i = 0; handlers[i].type != NULL; i++) {
 			if(!strcmp(chunkbuf, handlers[i].type)) {
 				handlers[i].func(buf + pos + 8, len, &png);
 				break;
 			}
 		}
-		check_crc(buf + pos + 8 + len, buf + pos + 4, len + 4);
+		
 		pos += 12 + len;
 	}
+	 
+    
 	fclose(f);
 	free(buf);
+}
+
+int main(int argc, char **argv)
+{
+	readImage(argc,argv);
 	return 0;
 }
