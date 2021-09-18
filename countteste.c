@@ -1,13 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #define MAX_SIZE (1396 * 1024 * 1024)
+#define TRUE  1
+#define FALSE 0
+#define MAX_NIVEL 255
 
 
 //initial values
-int nl = 0;
-int nC = 0;
+int gnl = 0;
+int gnC = 0;
+
+typedef int * imagem;
+
 
 /* Table of CRCs of all 8-bit messages. */
 unsigned long crc_table[256];
@@ -63,8 +70,8 @@ void header_handler(const char *buf, int len, struct png_data *png)
 	printf("Filter method:      %d\n", (unsigned char)buf[11]);
 	printf("Interlace method:   %d\n", (unsigned char)buf[12]);
 
-	nC= get_big_endian(buf);
-	nl = get_big_endian(buf + 4);
+	gnC= get_big_endian(buf);
+	gnl = get_big_endian(buf + 4);
 
 }
 
@@ -135,7 +142,8 @@ void check_header(const char *buf)
 	validate((unsigned char)buf[7] == '\n', "header byte 8");
 }
 
-int readImage(int argc, char **argv){
+
+int readImage(int argc, char **argv, imagem *I){ 
 	if(argc != 2) {
 		printf("Usage: %s <png file>\n", argv[0]);
 		return 1;
@@ -169,24 +177,61 @@ int readImage(int argc, char **argv){
 		char chunkbuf[5];
 		chunkbuf[4] = 0;
 		memcpy(chunkbuf, buf + pos + 4, 4);
-		//printf("chunk: %s - len: %d (%d)\n", chunkbuf, len, size - (pos + len + 12));
+	//	printf("chunk: %s - len: %d (%d)\n", chunkbuf, len, size - (pos + len + 12));
 		for(int i = 0; handlers[i].type != NULL; i++) {
 			if(!strcmp(chunkbuf, handlers[i].type)) {
 				handlers[i].func(buf + pos + 8, len, &png);
 				break;
 			}
-		}
-		
+		}	
 		pos += 12 + len;
 	}
-	 
-    
+	//teste
+		
+		int i, j, k, l=0;
+		if (aloca_memo(I, gnl, gnC)) {
+        for (i = 0; i <= gnl; i++) {
+            for (j = 0; j <= gnC; j++) {
+                fscanf(f, "%d", &k);
+                if (k > MAX_NIVEL) {
+                    printf("Erro nos DADOS do arquivo <%s>\n", argv[1]);
+                    printf("Valor lido: %d   Max Nivel: %d\n\n", k, MAX_NIVEL);
+                    return FALSE;
+                }
+                *(*(I) + i * gnC + j) = k;		  
+            }			
+        }
+        fclose(f);
+    } else {
+        printf("Erro na ALOCACAO DE MEMORIA para o arquivo <%s>\n\n", argv[1]);
+        printf("Rotina: le_imagem_pgm\n\n");
+        fclose(f);
+        return FALSE;
+    }
+   		//teste
+
+
+
 	fclose(f);
 	free(buf);
+	
+}
+
+int aloca_memo(imagem *I, int nl, int nC) {
+    *I = (int *) malloc(nl * nC * sizeof (int));
+    if (*I) return TRUE;
+    else return FALSE;
+}
+
+int desaloca_memo(imagem *I) {
+    free(*I);
+	printf("FREE");
 }
 
 int main(int argc, char **argv)
 {
-	readImage(argc,argv);
+	imagem In;
+	readImage(argc,argv, &In);
+	desaloca_memo(&In);
 	return 0;
 }
