@@ -143,7 +143,7 @@ void check_header(const char *buf)
 	validate((unsigned char)buf[7] == '\n', "header byte 8");
 }
 
-
+// eu juntei dois códigos que eu tinha... deu muito certo não. mas le e criar a matrizes 
 int readImage(int argc, char **argv, imagem *I){ 
 	if(argc != 2) {
 		printf("Usage: %s <png file>\n", argv[0]);
@@ -187,29 +187,41 @@ int readImage(int argc, char **argv, imagem *I){
 		}	
 		pos += 12 + len;
 	}
-	
-	int i, j, k, l=0;
-		if (aloca_memo(I, gnl, gnC)) {
-        for (i = 0; i <= gnl; i++) {
-            for (j = 0; j <= gnC; j++) {
-                fscanf(f, "%d", &k);
-                if (k > MAX_NIVEL) {
-                    printf("Erro nos DADOS do arquivo <%s>\n", argv[1]);
-                    printf("Valor lido: %d   Max Nivel: %d\n\n", k, MAX_NIVEL);
-                    return FALSE;
-                }
-                *(*(I) + i * gnC + j) = k;		  
-            }			
-        }
-        fclose(f);
-    } else {
-        printf("Erro na ALOCACAO DE MEMORIA para o arquivo <%s>\n\n", argv[1]);
-        printf("Rotina: le_imagem_pgm\n\n");
-        fclose(f);
-        return FALSE;
-    }
-   	fclose(f);
-	free(buf);
+	/*
+	*cria uma matriz por alocação dinâmica, que na teoria divide a imagem grande em outras menores
+	* 
+	*/
+	int i, j, k, l=0, m;
+	int qtdImg= 20;
+	imagem VetImage[qtdImg];
+	int controleinicio= 0 ;
+	int  controlefim  = gnl/qtdImg;
+		for(m= 0; m< 20; m++){
+			if (aloca_memo(I, gnl/qtdImg, gnC)) {
+				for (i = controleinicio; i <= controlefim; i++) {
+					for (j = 0; j <= gnC; j++) {
+						fscanf(f, "%d", &k);
+						if (k > MAX_NIVEL) {
+							printf("Erro nos DADOS do arquivo <%s>\n", argv[1]);
+							printf("Valor lido: %d   Max Nivel: %d\n\n", k, MAX_NIVEL);
+							return FALSE;
+						}
+						*(*(I) + i * gnC + j) = k;		  
+					}								
+				}
+				VetImage[m]=I;
+				controleinicio++;
+				controlefim++;
+				fclose(f);
+			}else {
+				printf("Erro na ALOCACAO DE MEMORIA para o arquivo <%s>\n\n", argv[1]);
+				printf("Rotina: le_imagem_pgm\n\n");
+				fclose(f);
+				return FALSE;
+			}
+ 		}
+   		fclose(f);
+		free(buf);
 	   return TRUE;
 }
 
@@ -283,6 +295,7 @@ int Conta_estrelas2(imagem I, int nl, int nc){
     }
     return cont2-1;
 }
+
 
 
 int main(int argc, char **argv)
