@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <mpi.h>
 
 #define MAX_SIZE (1396 * 1024 * 1024)
 #define TRUE  1
@@ -186,9 +187,8 @@ int readImage(int argc, char **argv, imagem *I){
 		}	
 		pos += 12 + len;
 	}
-	//teste
-		
-		int i, j, k, l=0;
+	
+	int i, j, k, l=0;
 		if (aloca_memo(I, gnl, gnC)) {
         for (i = 0; i <= gnl; i++) {
             for (j = 0; j <= gnC; j++) {
@@ -208,13 +208,9 @@ int readImage(int argc, char **argv, imagem *I){
         fclose(f);
         return FALSE;
     }
-   		//teste
-
-
-
-	fclose(f);
+   	fclose(f);
 	free(buf);
-	
+	   return TRUE;
 }
 
 int aloca_memo(imagem *I, int nl, int nC) {
@@ -225,13 +221,110 @@ int aloca_memo(imagem *I, int nl, int nC) {
 
 int desaloca_memo(imagem *I) {
     free(*I);
-	printf("FREE");
 }
+
+void Conta_estrelas(imagem I, int nl, int nc) {
+	 printf("Rotina: le_imagem_pgm\n\n");
+    int i, j, x=1;
+    for (i = 0; i < nl; i++){
+        for (j = 0; j < nc; j++){
+            if (i == 0) {
+                  if ((I[i * nc + j] == 255) && (I[i * nc + (j - 1)] != 0)) {
+                    I[i * nc + j] = I[i * nc + (j - 1)];
+                } else if (I[i * nc + j] == 255) {
+                    I[i * nc + j] = x;
+                    x++;
+                }
+            } 
+            if (i > 0) {
+                 if ((I[i * nc + j] == 255) && (I[(i * nc + j) - 1] != 0) && (I[(i * nc + j) - nc] != 0)) {
+                     I[i * nc + j] = I[(i * nc + j) - nc];
+                     I[(i * nc + j) - 1] = I[(i * nc + j) - nc];
+                 }
+                 if ((I[i * nc + j] == 255) && (I[(i * nc + j) - nc] != 0)) {
+                     I[i * nc + j] = I[(i * nc + j) - nc];
+                 }
+                 if ((I[i * nc + j] == 255) && (I[(i * nc + j) - 1] != 0)) {
+                     I[i * nc + j] = I[(i * nc + j) - 1];
+                 }
+                 if (I[i * nc + j] == 255) {
+                     I[i * nc + j] = x;
+                     x++;
+                 }
+            }   
+        }
+    }
+
+    for (i = nl-1; i >= 0; i--){
+        for (j = nc; j >= 0; j--){
+            if ((I[i * nc + j] != 0) && (I[(i * nc + j) - 1] != 0)) {
+                     I[(i * nc + j) - 1] = I[i * nc + j];
+                 }
+        }
+    }
+
+}
+
+int Conta_estrelas2(imagem I, int nl, int nc){
+    int i,j,cont=0,cont2 = 0;
+    int max = nl*nc;
+    for (i = 0; i < max; i++){
+        for (j = i+1; j < max; j++){
+           if(I[i] != I[j]){
+               cont++;
+           }else{
+               break;
+           }
+        }
+        if(cont == max-(i+1)){
+            cont2++;
+        }
+        cont=0;
+    }
+    return cont2-1;
+}
+
 
 int main(int argc, char **argv)
 {
+
+	 // Initialize the MPI environment
+    MPI_Init(NULL, NULL);
+
+    // Get the number of processes
+    int world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    // Get the rank of the process
+    int world_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+    // Get the name of the processor
+    char processor_name[MPI_MAX_PROCESSOR_NAME];
+    int name_len;
+    MPI_Get_processor_name(processor_name, &name_len);
+
+
 	imagem In;
-	readImage(argc,argv, &In);
+	int estrelas;
+	int OK;
+//--------------------------------------------------------------------------------
+  
+	OK = readImage(argc,argv, &In);      
+	if(OK){	
+		MPI_Send(&gnl, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+		MPI_Send(&gnC, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+		MPI_Send(&In, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+		MPI_Recv(&estrelas, 1, MPI_INT, 1, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+		printf("estrelas = %d", estrelas);
+		Conta_estrelas(In,gnl,gnC);
+		estrelas = Conta_estrelas2(In,gnl,gnC);
+		printf("estrelas = %d\n", estrelas); 
+	 	
+    } 
+
+    MPI_Finalize();
+     
 	desaloca_memo(&In);
 	return 0;
 }
